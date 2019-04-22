@@ -2,7 +2,7 @@ import random
 #This simulation is used to find the average bleed DPS
 #This is tricky with Aspect of the Cat and Farrul's Pounce since the bleed situations can vary widely
 
-#Usage Note: This doesn't take into account any increased/more damage multipliers. 
+#Usage Note: This doesn't take into account any increased/more damage multipliers. Don't Spec Crimson Dance or ignore the 50% less in PoB when getting your damage #s
 #Set up Path of Building and set all your configuration options and then take the min/max damage values
 #Take the Min and Max Damage numbers from the "MH Source Physical" in PoB Calcs Tab in the Bleed Box
 
