@@ -7,7 +7,6 @@ import random
 #Take the Min and Max Damage numbers from the "MH Source Physical" in PoB Calcs Tab in the Bleed Box
 
 #TODO LIST
-# - Instead of incrementally re-simulating longer lenghts updated dps each second, add in the new bleeds (would be MUCH more efficient)
 # - Add rotating Stealth/Agility to simulation (changes in attk speed, bleed chance, crit chance, and Crimson Dance) - Big Addition
     #Each iteration could start at a random second within an Aspect phase
     
@@ -23,7 +22,9 @@ skill_one_min, skill_one_max = 34800, 88400
 use_skill_two = True
 skill_two_min, skill_two_max = 9600, 27200
 
-skill_one_aps, skill_two_aps = 1.4, 3.2
+skill_one_aps, skill_two_aps = 1.4, 3.2  
+#This strictly controlls how many bleeds you can inflict per second, doesn't take into accound chain or Tornado Shot striking many bleeds at once
+
 #TODO
 #skill_one_aps_cats_stealth=1.39
 #skill_one_aps_cats_agility=1.45
@@ -99,13 +100,16 @@ if ryslatha:
   skill_one_max = int(skill_one_max * ryslatha_max_roll)
   skill_two_max = int(skill_two_max * ryslatha_max_roll)
   
+#Track attack remainders to correct integer division (rounding) while calcing 1 sec at a time
+skill_one_mod = 0
+skill_two_mod = 0
 # =============END SETUP/VARIABLES===================
 
 
 # =============START FUNCTIONS=======================
-def CalculateBleeds(aps, attk_time, min_dmg, max_dmg, bleed_chance):
+def CalculateBleeds(attacks, min_dmg, max_dmg, bleed_chance):
   return_bleeds = []
-  for t in range(0, int(aps * attk_time)):
+  for t in range(0, int(attacks)):
     #Hit and Bleed Check
     if random.randint(0,99) < accuracy and random.randint(0, 99) < bleed_chance:
       #Bleed Based on random value between min and max damage
@@ -147,33 +151,44 @@ def CalculateBleeds(aps, attk_time, min_dmg, max_dmg, bleed_chance):
 # =============START MAIN SIMULATION=======================
 print('\n\n\nThis simulation is trying to show an average Bleed DPS after attacking for a given time with up to two skills. You plus a totem or mirage archer')
 print('This simulation runs '+ str(simulation_trials) + ' trials to get average top bleeds.')
-  
-for i in range(0, int(simulation_time)): #Huge outer for loop to show ramping dps every second
-  crimson_dance = []     #A list of the sum of the top 8 bleeds from each trial
-  non_crimson_dance = [] #A list of the top bleeds (X2 to simulate it not being a Crimson Dance Hit)
-  
+
+#crimson_dance = []     #A list of the sum of the top 8 bleeds from each trial
+#non_crimson_dance = [] #A list of the top bleeds (X2 to simulate it not being a Crimson Dance Hit)
+
+crimson_dance = [[] for x in range(int(simulation_trials))] #Keeps a list of lists of the top 8 bleeds in each simulation
+non_crimson_dance = [0 for x in range(int(simulation_trials))] #Keeps a list of the top bleed in each simulation
+
+
+for i in range(0, int(simulation_time)): #One Second of Attacking each loop
   for j in range(0, simulation_trials):
-    bleeds = []
-    time_attacking = i+1
+    bleeds = list(crimson_dance[j]) # For simulation #j take previous top 8 as a starting list of bleeds
+    time_attacking = 1
     #Skill One (Siege Ballista)
     if use_skill_one:
-      list_one = CalculateBleeds(skill_one_aps, time_attacking, skill_one_min, skill_one_max, skill_one_bleed_chance)
+      skill_one_mod += float(skill_one_aps) % float(time_attacking) #keep remainder
+      attacks = int(skill_one_aps * time_attacking)                 #Integer division removes remainder
+      if skill_one_mod >= 1:
+        attacks+=1; skill_one_mod -=1
+      list_one = CalculateBleeds(attacks, skill_one_min, skill_one_max, skill_one_bleed_chance)
       bleeds.extend(list_one) if list_one is not None else None
       
     #Skill Two (Puncture)
     if use_skill_two:
-      list_two = bleeds.extend(CalculateBleeds(skill_two_aps, time_attacking, skill_two_min, skill_two_max, skill_two_bleed_chance))
+      skill_two_mod += float(skill_two_aps) % float(time_attacking) #keep remainder
+      attacks = int(skill_one_aps * time_attacking)                 #Integer division removes remainder
+      if skill_one_mod >= 1:
+        attacks+=1; skill_one_mod -=1
+      list_two = CalculateBleeds(attacks, skill_two_min, skill_two_max, skill_two_bleed_chance)
       bleeds.extend(list_two) if list_two is not None else None
    
-    #After each trial, sort and pull top 8 bleeds, and double top bleed for Solo Bleed Simulation      
+    #After each trial, save the top 8 bleeds, and top non CD bleed      
     bleeds.sort(reverse=True)
-    top_eight_bleeds = sum(bleeds[:8])
-    crimson_dance.append(top_eight_bleeds)
-    non_crimson_dance.append(sum(bleeds[:1]) * 2) # Farrul's Pounce when only dealing 1 bleed will be non-crimson dance value @ 70%, hence the x2
+    crimson_dance[j] = bleeds[:8]
+    non_crimson_dance[j] = (2 * sum(bleeds[:1])) # x2 to be a non Crimson Dance bleed. TODO track Cat Phases specifically
 
   #Now Get averages over all trials
-  avg_crimson_dance = sum(crimson_dance) / simulation_trials
-  avg_non_crimson_dance = sum(non_crimson_dance) / simulation_trials
+  avg_crimson_dance = sum([sum(i) for i in zip(*crimson_dance)]) / (simulation_trials)
+  avg_non_crimson_dance = sum(non_crimson_dance) / (simulation_trials * (i + 1))
   avg_non_crimson_dance_with_movement= avg_non_crimson_dance * 3
 
   print('\n\nAttacking non stop for ' + str(i+1) + ' seconds')
