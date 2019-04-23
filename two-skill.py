@@ -12,7 +12,7 @@ import random
     
 #==============SETUP AND VARIABLES==================
 #If you want to print out some weighted DPS calculations based roughly on the rotating effects of Aspect of the Cat and Farrul's Pounce Gloves
-farruls_pounce = True
+farruls_pounce = False
 
 # Current Values are my 6-Link Siege Balista Setup for Single Target Bleeds
 use_skill_one = True
@@ -32,7 +32,7 @@ skill_one_aps, skill_two_aps = 1.4, 3.2
 #skill_two_aps_cats_agility=3.23
 
 
-simulation_time=5 #In seconds, how long you continuously attack (DPS errors exist if longer than your bleed duration)
+simulation_time=4 #In seconds, how long you continuously attack (DPS errors exist if longer than your bleed duration)
 simulation_trials=10000
 
 if int(simulation_time) < 1:
@@ -65,12 +65,15 @@ ryslatha=True #Unique belt increases max/min hit range
 ryslatha_min_roll=.6 #Change based on your belt roll (.6-.7)
 ryslatha_max_roll=1.38 #Change based on your belt roll (1.3-1.4)
 
+#=====Bleed Faster Mods
 watchers_eye=True # Watcher's Eye Mod "Ailments you inflict deal damage faster while affected by Malevolence"
 watchers_eye_roll = .15 # (10-15%) Mod Roll
 
 synthesis_bleed_faster=True
 synthesis_bleed_faster_val = .35 # (30-35%) Synthesis faster implicit on bow
 
+
+#=====Effective DPS "enemies take increased damage" - Fill these our or override inc_dmg_taken_multi variable withe PoB value
 enemy_maimed=True
 maim_effect=15 #10-15 Value based on gem level (Only need in one skill, preferably not your single target skill)
 
@@ -149,14 +152,15 @@ def CalculateBleeds(attacks, min_dmg, max_dmg, bleed_chance):
   
 
 # =============START MAIN SIMULATION=======================
-print('\n\n\nThis simulation is trying to show an average Bleed DPS after attacking for a given time with up to two skills. You plus a totem or mirage archer')
+print('\n\n\nThis simulation shows an average Bleed DPS after attacking for a given time with up to two skills. You plus a totem or mirage archer')
 print('This simulation runs '+ str(simulation_trials) + ' trials to get average top bleeds.')
 
-crimson_dance = [[] for x in range(int(simulation_trials))] #Keeps a list of lists of the top 8 bleeds in each simulation
-non_crimson_dance = [0 for x in range(int(simulation_trials))] #Keeps a list of the top bleed in each simulation
+crimson_dance = [[] for x in range(simulation_trials)] #Keeps a list of lists of the top 8 bleeds in each simulation
+non_crimson_dance = [0 for x in range(simulation_trials)] #Keeps a list of the top bleed in each simulation
 
 
 for i in range(0, int(simulation_time)): #One Second of Attacking each loop
+  
   for j in range(0, simulation_trials):
     bleeds = list(crimson_dance[j]) # For simulation #j take previous top 8 as a starting list of bleeds
     time_attacking = 1
@@ -173,8 +177,8 @@ for i in range(0, int(simulation_time)): #One Second of Attacking each loop
     if use_skill_two:
       skill_two_mod += float(skill_two_aps) % float(time_attacking) #keep remainder
       attacks = int(skill_one_aps * time_attacking)                 #Integer division removes remainder
-      if skill_one_mod >= 1:
-        attacks+=1; skill_one_mod -=1
+      if skill_two_mod >= 1:
+        attacks+=1; skill_two_mod -=1
       list_two = CalculateBleeds(attacks, skill_two_min, skill_two_max, skill_two_bleed_chance)
       bleeds.extend(list_two) if list_two is not None else None
    
@@ -184,11 +188,16 @@ for i in range(0, int(simulation_time)): #One Second of Attacking each loop
     non_crimson_dance[j] = (2 * sum(bleeds[:1])) # x2 to be a non Crimson Dance bleed. TODO track Cat Phases specifically
 
   #Now Get averages over all trials
-  avg_crimson_dance = sum([sum(i) for i in zip(*crimson_dance)]) / (simulation_trials)
+  #avg_crimson_dance = sum([sum(i) for i in zip(*crimson_dance)]) / (simulation_trials) #fancy zip would fail sometimes with emply lists (missed attacks in a sim)
+  sum_cd = 0
+  for k in range(0, len(crimson_dance)):
+    sum_cd += sum(crimson_dance[k])
+    
+  avg_crimson_dance = sum_cd / (simulation_trials)
   avg_non_crimson_dance = sum(non_crimson_dance) / (simulation_trials)
   avg_non_crimson_dance_with_movement= avg_non_crimson_dance * 3
 
-  print('\n\nAttacking non stop for ' + str(i+1) + ' seconds')
+  print('\nAttacking non stop for ' + str(i+1) + ' seconds')
   #print('I\'m using a 6-link siege ballista for single target damage (slower aps, very hard hitting bleed) and puncture to fill out lots of long bleeds to always take advantage of Crimson dance when it is up. Also GMP+Chain for Map clear\n')
 
   print('Crimson Dance:                    ' + str("{:,}".format(int(avg_crimson_dance))) + ' DPS')
@@ -208,7 +217,7 @@ for i in range(0, int(simulation_time)): #One Second of Attacking each loop
     weighted_nine_bleeds = (avg_crimson_dance) + (avg_non_crimson_dance)
     weighted_nine_bleeds_and_movement = (avg_crimson_dance) + (avg_non_crimson_dance_with_movement)
 
-    print('50% of the time Crimson Dance + 50% of the time Single bleed:')
+    print('Never overlapping bleeds: 50% of the time Crimson Dance + 50% of the time Single bleed:')
     print(str("{:,}".format(int(weighted_average))) + ' DPS -- or ' + str(int(int(weighted_average) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance')
     print(str("{:,}".format(int(weighted_average_with_movement))) + ' DPS if movement bonus during Cat\'s Agility -- or ' + str(int(int(weighted_average_with_movement) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance\n')
 
