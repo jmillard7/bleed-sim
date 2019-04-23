@@ -183,7 +183,7 @@ for i in range(0, int(simulation_time)): #Huge outer for loop to show ramping dp
   print('VS')
   print('Non-Crimson Dance Top Bleed:      ' + str("{:,}".format(int(avg_non_crimson_dance))) + ' DPS')
   print('    With Movement Bonus:          ' + str("{:,}".format(int(avg_non_crimson_dance_with_movement))) + ' DPS')
-  if farruls_pounce:
+  if farruls_pounce and (i == int(simulation_time)-1):
     print('\nNow lets look at Farrul\'s Pounce and Aspect of the Cat')
     print('6 seconds of Crimson Dance during Cat\'s Stealth (using Farrul\'s Fur). Inflicts 35% bleeds, top 8 bleeds damage at a time, no movement bonus')
     print('6 seconds of non CD bleed during Cat\'s Agility. Inflict 70% bleed, x3 damage when moving.\n')
