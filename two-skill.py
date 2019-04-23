@@ -12,7 +12,7 @@ import random
     
 #==============SETUP AND VARIABLES==================
 #If you want to print out some weighted DPS calculations based roughly on the rotating effects of Aspect of the Cat and Farrul's Pounce Gloves
-farruls_pounce = False
+farruls_pounce = True
 
 # Current Values are my 6-Link Siege Balista Setup for Single Target Bleeds
 use_skill_one = True
@@ -32,7 +32,7 @@ skill_one_aps, skill_two_aps = 1.4, 3.2
 #skill_two_aps_cats_agility=3.23
 
 
-simulation_time=4 #In seconds, how long you continuously attack (DPS errors exist if longer than your bleed duration)
+simulation_time=6 #In seconds, how long you continuously attack (DPS errors exist if longer than your bleed duration)
 simulation_trials=10000
 
 if int(simulation_time) < 1:
@@ -225,4 +225,4 @@ for i in range(0, int(simulation_time)): #One Second of Attacking each loop
     print(str("{:,}".format(int(weighted_nine_bleeds))) + ' DPS -- ' + str(int(int(weighted_nine_bleeds) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance')
     print(str("{:,}".format(int(weighted_nine_bleeds_and_movement))) + ' DPS if movement bonus during Cat\'s Agility -- or ' + str(int(int(weighted_nine_bleeds_and_movement) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance\n')
 
-    print('9 Bleed damage looks great but you can\'t achieve it until you\'ve been attacking through both phases and your bleed duration needs to be long enouhg or your aspect phase needs to be short enough to make it work consistently and not take forever to achieve.')
+    print('9 Bleed damage looks great but you can\'t achieve it until you\'ve been attacking through both phases and your bleed duration needs to be long enouhg or your aspect phase needs to be short enough to make it work consistently and not take forever to achieve. TODO: Also this value is flawed because it is taking your highest bleed ever and using it as the 9th bleed, when in reality it would only be the top bleed inflicted during Cat\'s Agility. Some work needed to simulate the changing Cat Aspects')
