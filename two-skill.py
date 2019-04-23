@@ -13,7 +13,7 @@ import random
     
 #==============SETUP AND VARIABLES==================
 #If you want to print out some weighted DPS calculations based roughly on the rotating effects of Aspect of the Cat and Farrul's Pounce Gloves
-farruls_pounce = False
+farruls_pounce = True
 
 # Current Values are my 6-Link Siege Balista Setup for Single Target Bleeds
 use_skill_one = True
@@ -65,10 +65,10 @@ ryslatha_min_roll=.6 #Change based on your belt roll (.6-.7)
 ryslatha_max_roll=1.38 #Change based on your belt roll (1.3-1.4)
 
 watchers_eye=True # Watcher's Eye Mod "Ailments you inflict deal damage faster while affected by Malevolence"
-watchers_eye_roll = 1.15 # (10-15%) Mod Roll
+watchers_eye_roll = .15 # (10-15%) Mod Roll
 
 synthesis_bleed_faster=True
-synthesis_bleed_faster_val = 1.35 # (30-35%) Synthesis faster implicit on bow
+synthesis_bleed_faster_val = .35 # (30-35%) Synthesis faster implicit on bow
 
 enemy_maimed=True
 maim_effect=15 #10-15 Value based on gem level (Only need in one skill, preferably not your single target skill)
@@ -124,10 +124,13 @@ def CalculateBleeds(aps, attk_time, min_dmg, max_dmg, bleed_chance):
       bleed = bleed * .35
         
       #Bleeds Faster from watcher's eye 15% faster and Sythesis Implicit 35% faster
+      bleed_faster_multi = 1
       if watchers_eye:
-        bleed *= watchers_eye_roll
+        bleed_faster_multi += watchers_eye_roll
       if synthesis_bleed_faster:
-        bleed *= synthesis_bleed_faster_val
+        bleed_faster_multi += synthesis_bleed_faster_val
+      
+      bleed *= bleed_faster_multi
 
       #Effective DPS calc for all increased damage taken modifiers added together
       bleed *= inc_dmg_taken_multi
@@ -183,22 +186,22 @@ for i in range(0, int(simulation_time)): #Huge outer for loop to show ramping dp
   if farruls_pounce:
     print('\nNow lets look at Farrul\'s Pounce and Aspect of the Cat')
     print('6 seconds of Crimson Dance during Cat\'s Stealth (using Farrul\'s Fur). Inflicts 35% bleeds, top 8 bleeds damage at a time, no movement bonus')
-    print('6 seconds of down time during Cat\'s Agility. Inflict 70% bleeds, one bleed at a time, x3 damage when moving.\n')
+    print('6 seconds of non CD bleed during Cat\'s Agility. Inflict 70% bleed, x3 damage when moving.\n')
 
-    print('Bleeds inflicted during Cat\'s Agility keep bleeding at their original 70% even into the Crimson Dance phase (Heard on Reddit, needs source/testing)')
-    print('Now lets mess with different scenarios with damage weighted (50/50) between both Aspect Phases:\n')
+    print('Crimson Dance and Non-Crimson Dance are separate debuffs allowing up to 9 bleeds. Ideally we could link Aspect of the Cat to Less Duration,')
+    print('but lets do some rough weighted calculations for both Aspect Phases:\n')
 
     weighted_average = (avg_crimson_dance * .5) + (avg_non_crimson_dance * .5)
-    weighted_average_with_movement = (avg_crimson_dance * .5) + (avg_non_crimson_dance * .5 * 3)
-    weighted_with_spillover = (avg_crimson_dance * .5 * 2) + (avg_non_crimson_dance_with_movement * .5)
-    weighted_with_spillover_and_movement = (avg_crimson_dance * .5 * 2) + (avg_non_crimson_dance_with_movement * .5 * 3)
+    weighted_average_with_movement = (avg_crimson_dance * .5) + (avg_non_crimson_dance_with_movement * .5)
+    weighted_nine_bleeds = (avg_crimson_dance) + (avg_non_crimson_dance)
+    weighted_nine_bleeds_and_movement = (avg_crimson_dance) + (avg_non_crimson_dance_with_movement)
 
     print('50% of the time Crimson Dance + 50% of the time Single bleed:')
     print(str("{:,}".format(int(weighted_average))) + ' DPS -- or ' + str(int(int(weighted_average) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance')
     print(str("{:,}".format(int(weighted_average_with_movement))) + ' DPS if movement bonus during Cat\'s Agility -- or ' + str(int(int(weighted_average_with_movement) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance\n')
 
-    print('50% of the time Crimson Dance all 8 bleeds are spill over 70% bleeds from Cat\'s Agility + 50% of the time Single bleed')
-    print(str("{:,}".format(int(weighted_with_spillover))) + ' DPS -- ' + str(int(int(weighted_with_spillover) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance')
-    print(str("{:,}".format(int(weighted_with_spillover_and_movement))) + ' DPS if movement bonus during Cat\'s Agility -- or ' + str(int(int(weighted_with_spillover_and_movement) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance\n')
+    print('DPS with 9 Bleeds.(8 Stacked during CD + 1 During no CD)')
+    print(str("{:,}".format(int(weighted_nine_bleeds))) + ' DPS -- ' + str(int(int(weighted_nine_bleeds) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance')
+    print(str("{:,}".format(int(weighted_nine_bleeds_and_movement))) + ' DPS if movement bonus during Cat\'s Agility -- or ' + str(int(int(weighted_nine_bleeds_and_movement) / int(avg_crimson_dance) * 100)) + '% damage compared to straight crimson dance\n')
 
-    print('The actual damage is really hard to calculate because it depends on when (which Aspect phase) you start attacking and the best and worse case scenarios vary widely, but I think I\'ve shown with my simulation that Farrul\'s Pounce is pretty good for bleed especially the large flat accuracy for going crit. Ranged is much weaker than melee bleed, so I needed to go crit to make it work.')
+    print('9 Bleed damage looks great but you can\'t achieve it until you\'ve been attacking through both phases and your bleed duration needs to be long enouhg or your aspect phase needs to be short enough to make it work consistently and not take forever to achieve.')
