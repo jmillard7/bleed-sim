@@ -152,9 +152,6 @@ def CalculateBleeds(attacks, min_dmg, max_dmg, bleed_chance):
 print('\n\n\nThis simulation is trying to show an average Bleed DPS after attacking for a given time with up to two skills. You plus a totem or mirage archer')
 print('This simulation runs '+ str(simulation_trials) + ' trials to get average top bleeds.')
 
-#crimson_dance = []     #A list of the sum of the top 8 bleeds from each trial
-#non_crimson_dance = [] #A list of the top bleeds (X2 to simulate it not being a Crimson Dance Hit)
-
 crimson_dance = [[] for x in range(int(simulation_trials))] #Keeps a list of lists of the top 8 bleeds in each simulation
 non_crimson_dance = [0 for x in range(int(simulation_trials))] #Keeps a list of the top bleed in each simulation
 
@@ -188,7 +185,7 @@ for i in range(0, int(simulation_time)): #One Second of Attacking each loop
 
   #Now Get averages over all trials
   avg_crimson_dance = sum([sum(i) for i in zip(*crimson_dance)]) / (simulation_trials)
-  avg_non_crimson_dance = sum(non_crimson_dance) / (simulation_trials * (i + 1))
+  avg_non_crimson_dance = sum(non_crimson_dance) / (simulation_trials)
   avg_non_crimson_dance_with_movement= avg_non_crimson_dance * 3
 
   print('\n\nAttacking non stop for ' + str(i+1) + ' seconds')
