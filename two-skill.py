@@ -72,6 +72,8 @@ watchers_eye_roll = .15 # (10-15%) Mod Roll
 synthesis_bleed_faster=True
 synthesis_bleed_faster_val = .35 # (30-35%) Synthesis faster implicit on bow
 
+# Corroded Fossil Mod on weapon "60% chance to deal 100% more damage with bleeding"
+delve_bleed_mod = True
 
 #=====Effective DPS "enemies take increased damage" - Fill these our or override inc_dmg_taken_multi variable withe PoB value
 enemy_maimed=True
@@ -119,8 +121,9 @@ def CalculateBleeds(attacks, min_dmg, max_dmg, bleed_chance):
       bleed = float(random.randint(min_dmg, max_dmg))
         
       #Fossil Mod Chance to double damage with bleeding
-      if random.randint(0, 99) < 60:
-        bleed *= 2
+      if delve_bleed_mod:
+        if random.randint(0, 99) < 60:
+          bleed *= 2
 
       #DO NOT LINK TO RANGED ATTACKS EVEN THOUGH THE GAME SAYS IT WORKS
       if ruthless:#Important, PoB gives Ruthess a 37% more multi, so ware of that if you use this
