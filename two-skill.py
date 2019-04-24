@@ -191,12 +191,7 @@ for i in range(0, int(simulation_time)): #One Second of Attacking each loop
     non_crimson_dance[j] = (2 * sum(bleeds[:1])) # x2 to be a non Crimson Dance bleed. TODO track Cat Phases specifically
 
   #Now Get averages over all trials
-  #avg_crimson_dance = sum([sum(i) for i in zip(*crimson_dance)]) / (simulation_trials) #fancy zip would fail sometimes with emply lists (missed attacks in a sim)
-  sum_cd = 0
-  for k in range(0, len(crimson_dance)):
-    sum_cd += sum(crimson_dance[k])
-    
-  avg_crimson_dance = sum_cd / (simulation_trials)
+  avg_crimson_dance = sum([sum(i) for i in zip(*filter(None, crimson_dance))]) / (simulation_trials) #Filter fixes when the zip encounters an empty list
   avg_non_crimson_dance = sum(non_crimson_dance) / (simulation_trials)
   avg_non_crimson_dance_with_movement= avg_non_crimson_dance * 3
 
