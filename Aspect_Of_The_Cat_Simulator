@@ -1,0 +1,281 @@
+import random
+#This simulation is used to find the average bleed DPS
+#This is tricky with Aspect of the Cat and Farrul's Pounce since the bleed situations can vary widely
+
+#Usage Note: This doesn't take into account any increased/more damage multipliers. Don't Spec Crimson Dance or ignore the 50% less in PoB when getting your damage #s
+#Set up Path of Building and set all your configuration options and then take the min/max damage values
+#Take the Min and Max Damage numbers from the "MH Source Physical" in PoB Calcs Tab in the Bleed Box
+    
+#==============SETUP AND VARIABLES==================
+#Aspect of the Cat + Farrul's Pounce allows up to 9 bleeds since crimson dance and non crimson dance debuffs are separate.
+verbose = True    #To see more console output
+debug = False
+
+#TODO: Assuming Farrul's Fur making the phases the same length
+aspect_phase_duration = 3 #Default 6 seconds, you want this lower if you are going for 9 bleeds
+
+# Off for now
+use_skill_one = False
+skill_one_min, skill_one_max = 34800, 88400
+
+# Tornado Shot
+use_skill_two = True
+skill_two_min, skill_two_max = 13000, 40000
+
+skill_one_aps = 1.39
+skill_two_aps = 3.08
+skill_one_aps_cat_agility = 1.45
+skill_two_aps_cat_agility = 3.23  
+
+#Note: Crit is calculated per attack, but not accuracy/dmg.
+#Usually put 1 here unless you have sub-projectiles (Tornado Shot) or chain projectiles that would have a chance to inflict multiple hits from one attack
+max_hits_per_attack = 10 # 2 for now, not sure realistically how many bleeds I get on average per attack on a single target
+tornado_shot_helm_enchant  = False #Will make the random number of hits per attack unlucky without helm enchant
+minions_to_chain_more_hits = False #TODO: Not sure what to do with this yet, but chain does give a chance for more hits per attack
+
+simulation_time=6 #Consecutive Attack Time (calc error if longer than bleed duration)
+simulation_trials = 20000
+if debug: simulation_trials = 1
+
+
+if int(simulation_time) < 1:
+  print('Simulation time should be a time > 1 and preferably an integer. Given time: ' + str(simulation_time))
+  exit()
+
+skill_one_bleed_chance=100 # Siege Ballista - Chance to bleed gem + Tree Passives
+skill_two_bleed_chance=100 # Tornado Shot
+
+#Critical Strike Chance
+crit_chance_cat_stealth = 34
+crit_chance_cat_agility = 27
+crit_chance_lucky = True # Diamond Flask Active
+
+#Critical Strike Multiplier
+crit_multiplier=1.5              #Can put your actual Crit Multi here, does nothing unless you have Perfect Agony (not worht usually)
+crit_multiplier_for_ailments=1.5 #Don't Modify this base value
+
+accuracy=94 # technically 91% chance - 94% chance if bleeding (Farrul's Pounce) #Todo consider hit chance after first bleed
+
+#Perfect Agony Sucks unless you just happen to have a bunch of crit multi anyways
+#Ailements always use your base crit multiplier 150%. Perfect Agony lets any crit over that be applied at 30% actual value
+perfect_agony=False
+if perfect_agony:
+  crit_multiplier_for_ailments += ((crit_multiplier - 1.5) * .3)
+
+ruthless=False #Only for Meele Attacks
+
+ryslatha=True #Unique belt increases max/min hit range
+ryslatha_min_roll=.6 #Change based on your belt roll (.6-.7)
+ryslatha_max_roll=1.38 #Change based on your belt roll (1.3-1.4)
+
+#=====Bleed Faster Mods
+watchers_eye=True # Watcher's Eye Mod "Ailments you inflict deal damage faster while affected by Malevolence"
+watchers_eye_roll = .15 # (10-15%) Mod Roll
+
+synthesis_bleed_faster=True
+synthesis_bleed_faster_val = .35 # (30-35%) Synthesis faster implicit on bow
+
+# Corroded Fossil Mod on weapon "60% chance to deal 100% more damage with bleeding"
+delve_bleed_mod = True
+
+#=====Effective DPS "enemies take increased damage" - Fill these our or override inc_dmg_taken_multi variable withe PoB value
+enemy_maimed=True
+maim_effect=15 #10-15 Value based on gem level (Only need in one skill, preferably not your single target skill)
+
+war_banner=True
+war_banner_effect=12 #8-12 based on Gem Level (Aura Effect?)
+
+vuln_curse=True
+vuln_effect=21 #Make sure this fits your gem level and also less effect for Shaper/Normal Boss. Increased Phys taken + Increased Phys taken over time * less effect
+
+glad_passive_blood_in_the_eyes=True #10% increased physical dmg taken when maimed
+
+inc_dmg_taken_multi = 100 #Track effective DPS from increased damage taken modifiers
+if enemy_maimed:
+  inc_dmg_taken_multi += maim_effect
+  if glad_passive_blood_in_the_eyes:
+    inc_dmg_taken_multi += 10
+if vuln_curse:
+  inc_dmg_taken_multi += vuln_effect
+if war_banner:
+  inc_dmg_taken_multi += war_banner_effect
+inc_dmg_taken_multi /= 100 #for percent value
+  
+if ryslatha:
+  #Calculating the max and min damage from unique belt "Ryslatha"
+  skill_one_min = int(skill_one_min * ryslatha_min_roll)
+  skill_two_min = int(skill_two_min * ryslatha_min_roll)
+  skill_one_max = int(skill_one_max * ryslatha_max_roll)
+  skill_two_max = int(skill_two_max * ryslatha_max_roll)
+  
+#Track attack remainders to correct integer division (rounding) while calcing 1 sec at a time
+skill_one_mod = 0
+skill_two_mod = 0
+# =============END SETUP/VARIABLES===================
+
+
+# =============START FUNCTIONS=======================
+def CalculateBleeds(attacks, min_dmg, max_dmg, bleed_chance, cats_stealth):
+  return_bleeds = []
+  
+  if cats_stealth:
+    crit_chance = crit_chance_cat_stealth
+    bleed_chance = 100 #Farrul's Pounce grants 100% bleed chance during stealth
+    c_dance = True     #Also Crimson Dance during cat stealth
+  else:
+    crit_chance = crit_chance_cat_agility
+    c_dance = False
+  
+  for t in range(0, int(attacks)): #For each attack
+    #Calc Crit per attack -- Accuracy has separate check for critical strike
+    critical_hit = bool((random.randint(0,99) < crit_chance) and (random.randint(0,99) < accuracy)) or (crit_chance_lucky and (random.randint(0,99) < crit_chance) and (random.randint(0,99) < accuracy))
+    
+    landed_hits = 0
+    #TODO: This simulation of how many hits/attack could likely be better
+    if tornado_shot_helm_enchant == False: #Emulating really-unlucky sub-projectile hits without helm enchant to favor less hits per attack
+      #landed_hits = min(random.randint(1,max_hits_per_attack), random.randint(1,max_hits_per_attack)) 
+      landed_hits = random.randint(1,max_hits_per_attack) 
+    else:                                  #Emulating slightly unlucky with TS helm Enchant to favor less hits per attack
+      landed_hits = min(random.randint(1,max_hits_per_attack))
+
+    for h in range(0, landed_hits): #For each hit
+      #Accuracy and Bleed Check
+      if random.randint(0,99) < accuracy and random.randint(0, 99) < bleed_chance:
+        #Bleed Based on random value between min and max damage
+        bleed = float(random.randint(min_dmg, max_dmg))
+          
+        #Fossil Mod Chance to double damage with bleeding
+        if delve_bleed_mod:
+          if random.randint(0, 99) < 60:
+            bleed *= 2
+
+        #DO NOT LINK TO RANGED ATTACKS EVEN THOUGH THE GAME SAYS IT WORKS
+        if ruthless:#Important, PoB gives Ruthess a 37% more multi, so ware of that if you use this
+          if t % 3 == 2: #Every third hit
+            bleed = bleed * 2.13 #113 More damage with bleeding
+          
+        #Crimson Dance bleed is 35% This is doubled later if we are simulating at 70% solo bleed
+        if c_dance:
+          bleed = bleed * .35
+        else:
+          bleed = bleed * .7
+        #Bleeds Faster from watcher's eye 15% faster and Sythesis Implicit 35% faster
+        bleed_faster_multi = 1
+        if watchers_eye:
+          bleed_faster_multi += watchers_eye_roll
+        if synthesis_bleed_faster:
+          bleed_faster_multi += synthesis_bleed_faster_val
+        
+        bleed *= bleed_faster_multi
+
+        #Effective DPS calc for all increased damage taken modifiers added together
+        bleed *= inc_dmg_taken_multi
+           
+        # Crit Chance, with Diamond Flask support
+        if critical_hit:
+          bleed *= crit_multiplier_for_ailments
+          
+        return_bleeds.append(int(bleed))
+  if debug:
+    print('List of inflicted bleeds during one second: ' + str(return_bleeds)) #Had to debug some issues
+  return return_bleeds
+  
+
+# =============START MAIN SIMULATION=======================
+print('\n\n\nTornado Shot without helm enchant and +1 chain from quiver, I\'m going to take an average of two hits per attack (from secondary proj)')
+print('This simulation shows an average Bleed DPS after attacking for a given time with up to two skills. You plus a totem or mirage archer')
+print('This simulation runs '+ str(simulation_trials) + ' trials to get average top bleeds.')
+
+crimson_dance = [[] for x in range(simulation_trials)] #Keeps a list of lists of the top 8 bleeds in each simulation
+non_crimson_dance = [0 for x in range(simulation_trials)] #Keeps a list of the top bleed in each simulation
+
+sim_phase_tracker = [] #Track the random start phase and time of each simulation
+for p in range(simulation_trials):
+  phase = []
+  aspect_phase = bool(random.getrandbits(1))
+  phase_time = round(random.uniform(0,aspect_phase_duration),1)
+  phase.append(aspect_phase)
+  phase.append(phase_time)
+  sim_phase_tracker.append(phase)
+#print(sim_phase_tracker) #Check to make sure random phase/time looks good
+
+for i in range(0, int(simulation_time)): #One Second of Simulation
+  for j in range(0, simulation_trials):  #Loop for each trial
+    #Take values for current phase and time
+    phase = sim_phase_tracker[j]
+    cats_stealth = phase[0]
+    phase_time = phase[1]
+    
+    if debug:
+      if cats_stealth:
+        print('\nPhase: Cat\'s Stealth (Crimson Dance) @ ' + str(round(phase_time,1)) + ' seconds')
+      else:
+        print('\nPhase: Cat\'s Agility @ ' + str(round(phase_time,1)) + ' seconds')
+    
+    #Update Phase Tracker as 1 second has passed
+    if (phase_time + 1) > aspect_phase_duration:
+      sim_phase_tracker[j][0] ^=True #Toggle true False (changes Aspect Phase)
+      sim_phase_tracker[j][1] += 1 - aspect_phase_duration
+    else:
+      sim_phase_tracker[j][1] += 1
+    
+    bleeds = []
+    if cats_stealth: #Crimson Dance
+      bleeds = list(crimson_dance[j])     # For simulation #j take previous top 8 crimson dance and add to it
+    else:
+      bleeds.append(non_crimson_dance[j]) # For simulation #j take previous top bleed and add to it
+    
+    simulation_interval = 1
+    #Skill One (Off Currently)
+    if use_skill_one:
+      if cats_stealth:
+        aps = skill_one_aps
+      else:
+        aps = skill_one_aps_cat_agility
+    
+      skill_one_mod += float(aps) % float(simulation_interval)     #Preserve remainder lost during integer division
+      attacks = int(aps * simulation_interval)
+      if skill_one_mod >= 1:
+        attacks+=1; skill_one_mod -=1
+      list_one = CalculateBleeds(attacks, skill_one_min, skill_one_max, skill_one_bleed_chance, cats_stealth)
+      bleeds.extend(list_one) if list_one is not None else None
+      
+    #Skill Two (TS)
+    if use_skill_two:
+      if cats_stealth:
+        aps = skill_two_aps
+      else:
+        aps = skill_two_aps_cat_agility
+      
+      skill_two_mod += float(aps) % float(simulation_interval)    #Preserve remainder lost during integer division
+      attacks = int(aps * simulation_interval)
+      if skill_two_mod >= 1:
+        attacks+=1; skill_two_mod -=1
+      list_two = CalculateBleeds(attacks, skill_two_min, skill_two_max, skill_two_bleed_chance, cats_stealth)
+      bleeds.extend(list_two) if list_two is not None else None
+   
+    #After each trial, save the top 8 bleeds OR top bleed for non CD     
+    bleeds.sort(reverse=True)
+    if cats_stealth:
+      crimson_dance[j] = bleeds[:8]
+    else:
+      non_crimson_dance[j] = (sum(bleeds[:1]))
+
+  #Now Get averages over all trials
+  avg_crimson_dance = sum([sum(i) for i in zip(*filter(None, crimson_dance))]) / (simulation_trials) #Filter fixes when the zip encounters an empty list
+  avg_non_crimson_dance = sum(non_crimson_dance) / (simulation_trials)
+  avg_non_crimson_dance_with_movement= avg_non_crimson_dance * 3
+
+  print('Attacking non stop for ' + str(i+1) + ' seconds')
+  #print('I\'m using a 6-link siege ballista for single target damage (slower aps, very hard hitting bleed) and puncture to fill out lots of long bleeds to always take advantage of Crimson dance when it is up. Also GMP+Chain for Map clear\n')
+
+  print('Crimson Dance:                    ' + str("{:,}".format(int(avg_crimson_dance))) + ' DPS')
+  print('Non-Crimson Dance Top Bleed:      ' + str("{:,}".format(int(avg_non_crimson_dance))) + ' DPS')
+  print('\nTotal Bleed Damage:               ' + str("{:,}".format(int(avg_crimson_dance + avg_non_crimson_dance))) + ' DPS')
+  print('    With Movement Bonus:          ' + str("{:,}".format(int(avg_crimson_dance + avg_non_crimson_dance_with_movement))) + ' DPS\n')
+  if (i == int(simulation_time)-1):
+    print('\nFarrul\'s Pounce and Aspect of the Cat')
+    print('6 seconds of Crimson Dance during Cat\'s Stealth (using Farrul\'s Fur). Inflicts 35% bleeds, top 8 bleeds damage at a time, no movement bonus')
+    print('6 seconds of non CD bleed during Cat\'s Agility. Inflict 70% bleed, x3 damage when moving.\n')
+
+    print('Crimson Dance and Non-Crimson Dance are separate debuffs allowing up to 9 bleeds.')
